@@ -5,6 +5,8 @@ import { Copy, Eye, Code, Check, Loader2, AlertTriangle, FileCode, ChevronDown }
 
 interface PreviewPanelProps {
   elements: MJElement[];
+  /** Which tab should open by default. Defaults to 'mjml'. */
+  defaultTab?: Tab;
 }
 
 type Tab = 'mjml' | 'html' | 'view';
@@ -15,8 +17,8 @@ type CompileState =
   | { status: 'success'; html: string; errors: unknown[] }
   | { status: 'error'; message: string };
 
-const PreviewPanel: React.FC<PreviewPanelProps> = ({ elements }) => {
-  const [tab, setTab] = useState<Tab>('mjml');
+const PreviewPanel: React.FC<PreviewPanelProps> = ({ elements, defaultTab = 'mjml' }) => {
+  const [tab, setTab] = useState<Tab>(defaultTab);
   const [compile, setCompile] = useState<CompileState>({ status: 'idle' });
   const abortRef = useRef<AbortController | null>(null);
 
@@ -230,10 +232,10 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ elements }) => {
             aria-label={copiedHtml ? 'HTML copied!' : 'Copy compiled HTML to clipboard'}
             title="Copy compiled HTML"
             className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-l-lg text-[10px] font-bold border-y border-l transition-all cursor-pointer ${elements.length === 0
-                ? 'bg-white border-gray-200 text-gray-300 cursor-not-allowed'
-                : copiedHtml
-                  ? 'bg-green-50 border-green-200 text-green-600'
-                  : 'bg-white border-gray-200 text-[#001033] hover:bg-gray-50'
+              ? 'bg-white border-gray-200 text-gray-300 cursor-not-allowed'
+              : copiedHtml
+                ? 'bg-green-50 border-green-200 text-green-600'
+                : 'bg-white border-gray-200 text-[#001033] hover:bg-gray-50'
               }`}
           >
             {exporting
@@ -256,10 +258,10 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ elements }) => {
             aria-haspopup="true"
             aria-expanded={dropdownOpen}
             className={`flex items-center justify-center px-2 py-1.5 rounded-r-lg text-[10px] font-bold border-y border-r transition-all ${elements.length === 0
-                ? 'bg-white border-gray-200 text-gray-300 cursor-not-allowed'
-                : dropdownOpen
-                  ? 'bg-gray-100 border-gray-200 text-[#001033] cursor-pointer'
-                  : 'bg-white border-gray-200 text-[#737477] hover:bg-gray-50 hover:text-[#001033] cursor-pointer'
+              ? 'bg-white border-gray-200 text-gray-300 cursor-not-allowed'
+              : dropdownOpen
+                ? 'bg-gray-100 border-gray-200 text-[#001033] cursor-pointer'
+                : 'bg-white border-gray-200 text-[#737477] hover:bg-gray-50 hover:text-[#001033] cursor-pointer'
               }`}
           >
             <ChevronDown size={11} className={`transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`} />

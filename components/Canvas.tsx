@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MJElement, MJComponentType, AppMode } from '../types';
 import { MJML_COMPONENTS } from '../constants';
-import { Plus, GripVertical, Trash2, Layout, EyeOff } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Layout, EyeOff, Eye, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface CanvasProps {
   elements: MJElement[];
@@ -15,6 +15,12 @@ interface CanvasProps {
   onNameChange: (name: string) => void;
   /** Controls which feature set is available */
   mode: AppMode;
+  /** Generator mode: toggle a block's hidden flag */
+  onToggleHidden?: (id: string) => void;
+  /** Generator mode: move a block up within its siblings */
+  onMoveUp?: (id: string) => void;
+  /** Generator mode: move a block down within its siblings */
+  onMoveDown?: (id: string) => void;
 }
 
 interface DropIndicator {
@@ -25,6 +31,7 @@ interface DropIndicator {
 const Canvas: React.FC<CanvasProps> = ({
   elements, selectedId, onSelect, onDrop, onReorder, onMoveInto, onDelete,
   templateName, onNameChange, mode,
+  onToggleHidden, onMoveUp, onMoveDown,
 }) => {
   const isGenerator = mode === 'generator';
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -214,8 +221,9 @@ const Canvas: React.FC<CanvasProps> = ({
               )}
             </div>
 
-            {/* Hover actions — hidden in generator mode */}
-            {!isGenerator && (
+            {/* Hover actions — mode-aware */}
+            {!isGenerator ? (
+              /* Builder: Delete + Grip */
               <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onMouseDown={e => e.stopPropagation()}
@@ -239,6 +247,42 @@ const Canvas: React.FC<CanvasProps> = ({
                 >
                   <GripVertical size={13} aria-hidden="true" />
                 </div>
+              </div>
+            ) : (
+              /* Generator: Up / Down / Toggle visibility */
+              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); onMoveUp?.(el.id); }}
+                  aria-label="Move up"
+                  title="Move up"
+                  className="p-1.5 rounded-lg hover:bg-gray-100 text-[#737477] transition-all cursor-pointer"
+                >
+                  <ChevronUp size={13} aria-hidden="true" />
+                </button>
+                <button
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); onMoveDown?.(el.id); }}
+                  aria-label="Move down"
+                  title="Move down"
+                  className="p-1.5 rounded-lg hover:bg-gray-100 text-[#737477] transition-all cursor-pointer"
+                >
+                  <ChevronDown size={13} aria-hidden="true" />
+                </button>
+                <button
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); onToggleHidden?.(el.id); }}
+                  aria-label={isHidden ? 'Show block' : 'Hide block'}
+                  title={isHidden ? 'Show block' : 'Hide block'}
+                  className={`p-1.5 rounded-lg transition-all cursor-pointer ${isHidden
+                      ? 'text-amber-500 hover:bg-amber-50'
+                      : 'text-[#737477] hover:bg-gray-100'
+                    }`}
+                >
+                  {isHidden
+                    ? <Eye size={13} aria-hidden="true" />
+                    : <EyeOff size={13} aria-hidden="true" />}
+                </button>
               </div>
             )}
           </div>

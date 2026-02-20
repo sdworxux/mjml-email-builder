@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { MJElement, MJComponentType, AppMode } from './types';
 import { MJML_COMPONENTS } from './constants';
 import ComponentSidebar from './components/ComponentSidebar';
-import ComponentNavigator from './components/ComponentNavigator';
 import Canvas from './components/Canvas';
 import PropertyEditor from './components/PropertyEditor';
 import PreviewPanel from './components/PreviewPanel';
@@ -255,6 +254,24 @@ const App: React.FC = () => {
     });
   }, [selectedId, findSiblings]);
 
+  // Version that accepts an explicit id — used by canvas Up/Down buttons
+  const handleMoveById = useCallback((id: string, direction: 'up' | 'down') => {
+    setElements(prev => {
+      const result = findSiblings(id, prev);
+      if (!result) return prev;
+      const { siblings, index } = result;
+      const swapIdx = direction === 'up' ? index - 1 : index + 1;
+      if (swapIdx < 0 || swapIdx >= siblings.length) return prev;
+      const newSiblings = [...siblings];
+      [newSiblings[index], newSiblings[swapIdx]] = [newSiblings[swapIdx], newSiblings[index]];
+      const patch = (items: MJElement[]): MJElement[] => {
+        if (items === siblings) return newSiblings;
+        return items.map(item => item.children ? { ...item, children: patch(item.children) } : item);
+      };
+      return patch(prev);
+    });
+  }, [findSiblings]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!selectedId) return;
@@ -433,6 +450,9 @@ const App: React.FC = () => {
     templateName,
     onNameChange: setTemplateName,
     mode: appMode,
+    onToggleHidden: handleToggleHidden,
+    onMoveUp: (id: string) => handleMoveById(id, 'up'),
+    onMoveDown: (id: string) => handleMoveById(id, 'down'),
   };
 
   // ── Shared prop panel renderer ─────────────────────────────────────────────
@@ -473,7 +493,7 @@ const App: React.FC = () => {
             <X size={15} />
           </button>
         )}
-        <PreviewPanel elements={elements} />
+        <PreviewPanel elements={elements} defaultTab={appMode === 'generator' ? 'view' : 'mjml'} />
       </div>
     </div>
   );
@@ -501,18 +521,9 @@ const App: React.FC = () => {
   return (
     <div className="h-screen w-screen flex bg-[#F4F5F8]" id="main-content">
 
-      {/* ── Left sidebar: Component Sidebar (builder) | Navigator (generator) ── */}
-      {appMode === 'builder' ? (
+      {/* ── Left sidebar: Component Sidebar (builder only) ── */}
+      {appMode === 'builder' && (
         <ComponentSidebar onDragStart={(e, type) => e.dataTransfer.setData('mj-type', type)} />
-      ) : (
-        <ComponentNavigator
-          elements={elements}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onToggleHidden={handleToggleHidden}
-          onMoveUp={(id) => handleMoveSelected('up')}
-          onMoveDown={(id) => handleMoveSelected('down')}
-        />
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -738,7 +749,7 @@ const App: React.FC = () => {
                     </div>
                   )}
                   <div className="flex-1 overflow-hidden">
-                    <PreviewPanel elements={elements} />
+                    <PreviewPanel elements={elements} defaultTab={appMode === 'generator' ? 'view' : 'mjml'} />
                   </div>
                 </div>
               </div>
