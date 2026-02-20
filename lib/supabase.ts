@@ -11,6 +11,7 @@ export interface DBTemplate {
     name: string;
     mjml: string;
     elements: unknown;
+    is_master: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -22,4 +23,14 @@ export interface DBTemplateHistory {
     mjml: string;
     elements: unknown;
     created_at: string;
+}
+
+export interface DBCampaign {
+    id: string;
+    name: string;
+    template_id: string | null;
+    elements: unknown;
+    mjml: string;
+    created_at: string;
+    updated_at: string;
 }

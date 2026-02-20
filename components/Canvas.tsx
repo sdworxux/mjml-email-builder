@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { MJElement, MJComponentType } from '../types';
+import { MJElement, MJComponentType, AppMode } from '../types';
 import { MJML_COMPONENTS } from '../constants';
-import { Plus, GripVertical, Trash2, Layout } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Layout, EyeOff } from 'lucide-react';
 
 interface CanvasProps {
   elements: MJElement[];
@@ -13,6 +13,8 @@ interface CanvasProps {
   onDelete: (id: string) => void;
   templateName: string;
   onNameChange: (name: string) => void;
+  /** Controls which feature set is available */
+  mode: AppMode;
 }
 
 interface DropIndicator {
@@ -22,8 +24,9 @@ interface DropIndicator {
 
 const Canvas: React.FC<CanvasProps> = ({
   elements, selectedId, onSelect, onDrop, onReorder, onMoveInto, onDelete,
-  templateName, onNameChange,
+  templateName, onNameChange, mode,
 }) => {
+  const isGenerator = mode === 'generator';
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null);
   // Which container is highlighted for an incoming sidebar component
@@ -131,9 +134,11 @@ const Canvas: React.FC<CanvasProps> = ({
 
   // ── Canvas root-level drop ────────────────────────────────────────────────
   const onCanvasDragOver = (e: React.DragEvent) => {
+    if (isGenerator) return;           // generator mode: no new drops
     if (isSidebarDrag(e) || isReorderDrag(e)) e.preventDefault();
   };
   const onCanvasDrop = (e: React.DragEvent) => {
+    if (isGenerator) return;
     e.preventDefault();
     const type = e.dataTransfer.getData('mj-type') as MJComponentType;
     if (type) onDrop(type);          // add to root
@@ -146,13 +151,14 @@ const Canvas: React.FC<CanvasProps> = ({
   const renderCard = (el: MJElement, depth = 0): React.ReactNode => {
     const isActive = selectedId === el.id;
     const isDragging = draggingId === el.id;
+    const isHidden = el.hidden === true;
     const config = MJML_COMPONENTS.find(c => c.type === el.type);
     const isContainer = config?.isContainer ?? false;
     const indicator = dropIndicator?.targetId === el.id ? dropIndicator.position : null;
     const isHighlight = containerHighlight === el.id;
 
     return (
-      <div key={el.id} className={`relative ${depth === 0 ? 'mb-2' : 'my-1'}`}>
+      <div key={el.id} className={`relative ${depth === 0 ? 'mb-2' : 'my-1'} ${isHidden ? 'opacity-50' : ''}`}>
 
         {/* Before-drop indicator */}
         <div
@@ -195,40 +201,46 @@ const Canvas: React.FC<CanvasProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-2">
-              <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${isActive ? 'bg-[#006dd8] text-white' : 'bg-gray-100 text-[#737477]'
-                }`}>
+              <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${isActive ? 'bg-[#006dd8] text-white' : 'bg-gray-100 text-[#737477]'}`}>
                 {el.type.replace('mj-', '')}
               </span>
               {isActive && (
                 <div className="w-1.5 h-1.5 rounded-full bg-[#006dd8] animate-pulse" aria-hidden="true" />
               )}
+              {isHidden && (
+                <span className="flex items-center gap-0.5 text-[9px] text-amber-500 font-bold">
+                  <EyeOff size={9} /> Hidden
+                </span>
+              )}
             </div>
 
-            {/* Hover actions */}
-            <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); onDelete(el.id); }}
-                aria-label={`Delete ${el.type.replace('mj-', '')} element`}
-                title="Delete"
-                className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 text-[#737477] transition-all cursor-pointer"
-              >
-                <Trash2 size={13} aria-hidden="true" />
-              </button>
+            {/* Hover actions — hidden in generator mode */}
+            {!isGenerator && (
+              <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); onDelete(el.id); }}
+                  aria-label={`Delete ${el.type.replace('mj-', '')} element`}
+                  title="Delete"
+                  className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 text-[#737477] transition-all cursor-pointer"
+                >
+                  <Trash2 size={13} aria-hidden="true" />
+                </button>
 
-              {/* Grip — only draggable element */}
-              <div
-                draggable
-                onDragStart={e => onGripDragStart(e, el.id)}
-                onDragEnd={onGripDragEnd}
-                onClick={e => e.stopPropagation()}
-                title="Drag to reorder"
-                aria-label="Drag to reorder"
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-300 hover:text-[#737477] transition-all cursor-grab active:cursor-grabbing"
-              >
-                <GripVertical size={13} aria-hidden="true" />
+                {/* Grip — only draggable element */}
+                <div
+                  draggable
+                  onDragStart={e => onGripDragStart(e, el.id)}
+                  onDragEnd={onGripDragEnd}
+                  onClick={e => e.stopPropagation()}
+                  title="Drag to reorder"
+                  aria-label="Drag to reorder"
+                  className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-300 hover:text-[#737477] transition-all cursor-grab active:cursor-grabbing"
+                >
+                  <GripVertical size={13} aria-hidden="true" />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Body */}

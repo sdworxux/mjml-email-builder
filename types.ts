@@ -42,6 +42,10 @@ export interface MJElement {
   content?: string;
   attributes: Record<string, string>;
   children?: MJElement[];
+  /** When true the element is excluded from MJML output and dimmed in the canvas */
+  hidden?: boolean;
+  /** Display label override shown in the Component Navigator */
+  label?: string;
 }
 
 export interface Template {
@@ -50,3 +54,6 @@ export interface Template {
   elements: MJElement[];
   updatedAt: number;
 }
+
+/** Controls which profile/mode the app is running in */
+export type AppMode = 'builder' | 'generator';

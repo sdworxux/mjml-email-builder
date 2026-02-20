@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { MJElement, MJComponentType } from '../types';
-import { X, Trash2, Settings, Palette, ImageIcon, FileCode } from 'lucide-react';
+import { MJElement, MJComponentType, AppMode } from '../types';
+import { X, Trash2, Settings, Palette, ImageIcon, FileCode, Lock } from 'lucide-react';
 import AssetsPanel, { DBAsset } from './AssetsPanel';
 import ContentEditor from './ContentEditor';
 import { MJML_COMPONENTS } from '../constants';
@@ -17,6 +17,7 @@ interface PropertyEditorProps {
   onUpdate: (element: MJElement) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
+  mode: AppMode;
 }
 
 /* ── Which types carry editable HTML content ──────────────────────────────
@@ -43,7 +44,10 @@ const CONTENT_MODE: Partial<Record<MJComponentType, EditorMode>> = {
   'mj-html-attributes': 'code',
 };
 
-const PropertyEditor: React.FC<PropertyEditorProps> = ({ element, onUpdate, onDelete, onClose }) => {
+const PropertyEditor: React.FC<PropertyEditorProps> = ({
+  element, onUpdate, onDelete, onClose, mode,
+}) => {
+  const isGenerator = mode === 'generator';
   const [assetPickerKey, setAssetPickerKey] = useState<string | null>(null);
 
   if (!element) return null;
@@ -89,14 +93,37 @@ const PropertyEditor: React.FC<PropertyEditorProps> = ({ element, onUpdate, onDe
             <p className="text-[10px] font-mono text-[#737477]">{element.type}</p>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          aria-label="Close property editor"
-          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
-        >
-          <X size={16} className="text-[#737477]" aria-hidden="true" />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Delete — hidden in generator mode */}
+          {!isGenerator && (
+            <button
+              onClick={() => { onDelete(element.id); onClose(); }}
+              aria-label="Delete element"
+              title="Delete element"
+              className="p-1.5 hover:bg-red-50 hover:text-red-500 text-[#737477] rounded-lg transition-colors cursor-pointer"
+            >
+              <Trash2 size={14} aria-hidden="true" />
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            aria-label="Close property editor"
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+          >
+            <X size={16} className="text-[#737477]" aria-hidden="true" />
+          </button>
+        </div>
       </div>
+
+      {/* Generator mode lock banner */}
+      {isGenerator && (
+        <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100 flex items-center gap-2 shrink-0">
+          <Lock size={11} className="text-amber-500 shrink-0" />
+          <p className="text-[10px] font-bold text-amber-700">
+            Content editing only — layout locked by master template
+          </p>
+        </div>
+      )}
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto p-5 space-y-7">
@@ -123,8 +150,8 @@ const PropertyEditor: React.FC<PropertyEditorProps> = ({ element, onUpdate, onDe
           </section>
         )}
 
-        {/* ── Style / attribute fields ── */}
-        {hasAttrs && (
+        {/* ── Style / attribute fields — hidden in generator mode ── */}
+        {hasAttrs && !isGenerator && (
           <section aria-label="Style attributes">
             <div className="flex items-center space-x-2 mb-3">
               <Palette size={13} className="text-[#737477]" aria-hidden="true" />

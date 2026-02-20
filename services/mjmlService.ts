@@ -98,8 +98,15 @@ function declaredFontNames(fontEls: MJElement[]): Set<string> {
 // ── MJML serialiser ───────────────────────────────────────────────────────────
 
 export const generateMJML = (elements: MJElement[]): string => {
-  const headEls = elements.filter(el => HEAD_TYPES.has(el.type));
-  const bodyEls = elements.filter(el => !HEAD_TYPES.has(el.type));
+  // Strip hidden elements from both head and body before any processing
+  const stripHidden = (els: MJElement[]): MJElement[] =>
+    els
+      .filter(el => !el.hidden)
+      .map(el => el.children ? { ...el, children: stripHidden(el.children) } : el);
+
+  const visible = stripHidden(elements);
+  const headEls = visible.filter(el => HEAD_TYPES.has(el.type));
+  const bodyEls = visible.filter(el => !HEAD_TYPES.has(el.type));
 
   const renderEl = (el: MJElement, indent = '    '): string => {
     const attrs = Object.entries(el.attributes)
