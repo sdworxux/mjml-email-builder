@@ -139,6 +139,33 @@ const App: React.FC = () => {
     setSelectedId(null);
   };
 
+  // ── Move element INTO a container ─────────────────────────────────────────
+  const handleMoveInto = useCallback((dragId: string, containerId: string) => {
+    setElements(prev => {
+      // Step 1: extract the dragged element from wherever it currently lives
+      let dragged: MJElement | null = null;
+      const extract = (items: MJElement[]): MJElement[] =>
+        items.reduce<MJElement[]>((acc, item) => {
+          if (item.id === dragId) { dragged = item; return acc; }
+          return [...acc, item.children ? { ...item, children: extract(item.children) } : item];
+        }, []);
+
+      const withoutDragged = extract(prev);
+      if (!dragged) return prev;
+
+      // Step 2: append to the container's children
+      const insert = (items: MJElement[]): MJElement[] =>
+        items.map(item => {
+          if (item.id === containerId) {
+            return { ...item, children: [...(item.children ?? []), dragged!] };
+          }
+          return item.children ? { ...item, children: insert(item.children) } : item;
+        });
+
+      return insert(withoutDragged);
+    });
+  }, []);
+
   // ── Reorder ────────────────────────────────────────────────────────────────
   const handleReorder = useCallback((dragId: string, targetId: string, position: 'before' | 'after') => {
     setElements(prev => {
@@ -306,6 +333,7 @@ const App: React.FC = () => {
     onSelect: setSelectedId,
     onDrop: handleAddComponent,
     onReorder: handleReorder,
+    onMoveInto: handleMoveInto,
     onDelete: handleDeleteElement,
     templateName,
     onNameChange: setTemplateName,

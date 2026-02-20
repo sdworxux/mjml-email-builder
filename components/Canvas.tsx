@@ -9,6 +9,7 @@ interface CanvasProps {
   onSelect: (id: string) => void;
   onDrop: (type: MJComponentType, parentId?: string) => void;
   onReorder: (dragId: string, targetId: string, position: 'before' | 'after') => void;
+  onMoveInto: (dragId: string, containerId: string) => void;
   onDelete: (id: string) => void;
   templateName: string;
   onNameChange: (name: string) => void;
@@ -16,11 +17,11 @@ interface CanvasProps {
 
 interface DropIndicator {
   targetId: string;
-  position: 'before' | 'after';
+  position: 'before' | 'after' | 'inside';
 }
 
 const Canvas: React.FC<CanvasProps> = ({
-  elements, selectedId, onSelect, onDrop, onReorder, onDelete,
+  elements, selectedId, onSelect, onDrop, onReorder, onMoveInto, onDelete,
   templateName, onNameChange,
 }) => {
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -47,10 +48,18 @@ const Canvas: React.FC<CanvasProps> = ({
     setDropIndicator(null);
   };
 
-  // ── Mouse-Y → before/after ────────────────────────────────────────────────
-  const getPosition = (e: React.DragEvent): 'before' | 'after' => {
+  // ── Position detection ────────────────────────────────────────────────────
+  // For containers: three zones → before (top 25%) | inside (middle 50%) | after (bottom 25%)
+  // For leaf elements: two zones → before / after split at midpoint
+  const getPosition = (e: React.DragEvent, isContainer: boolean): 'before' | 'after' | 'inside' => {
     const { top, height } = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    return e.clientY < top + height / 2 ? 'before' : 'after';
+    const pct = (e.clientY - top) / height;
+    if (isContainer) {
+      if (pct < 0.25) return 'before';
+      if (pct > 0.75) return 'after';
+      return 'inside';
+    }
+    return pct < 0.5 ? 'before' : 'after';
   };
 
   // ── Per-card drag handlers ────────────────────────────────────────────────
@@ -64,19 +73,24 @@ const Canvas: React.FC<CanvasProps> = ({
     if (isReorderDrag(e)) {
       e.preventDefault();
       e.stopPropagation();
-      const position = getPosition(e);
+      const position = getPosition(e, isContainer);
       setDropIndicator(prev =>
         prev?.targetId === elId && prev?.position === position
           ? prev
           : { targetId: elId, position },
       );
+      // 'inside' zone: also show the container highlight so it's doubly clear
+      if (isContainer && position === 'inside') {
+        setContainerHighlight(elId);
+      } else if (containerHighlight === elId) {
+        setContainerHighlight(null);
+      }
     } else if (isSidebarDrag(e)) {
-      e.preventDefault();                      // allow drop at this level regardless
+      e.preventDefault();
       if (isContainer) {
-        e.stopPropagation();                   // container claims the drop
+        e.stopPropagation();
         setContainerHighlight(elId);
       }
-      // non-container: no stopPropagation → bubbles to parent container
     }
   };
 
@@ -93,19 +107,25 @@ const Canvas: React.FC<CanvasProps> = ({
       e.preventDefault();
       e.stopPropagation();
       const dragId = e.dataTransfer.getData('reorder-id');
-      if (dragId && dragId !== elId) onReorder(dragId, elId, getPosition(e));
+      if (dragId && dragId !== elId) {
+        const position = getPosition(e, isContainer);
+        if (position === 'inside' && isContainer) {
+          onMoveInto(dragId, elId);             // nest into this container
+        } else {
+          onReorder(dragId, elId, position as 'before' | 'after');
+        }
+      }
       setDraggingId(null);
       setDropIndicator(null);
+      setContainerHighlight(null);
     } else if (isSidebarDrag(e)) {
       if (isContainer) {
-        // Container owns this sidebar drop
         e.preventDefault();
         e.stopPropagation();
         const type = e.dataTransfer.getData('mj-type') as MJComponentType;
         if (type) onDrop(type, elId);
         setContainerHighlight(null);
       }
-      // Non-container: do nothing — let event bubble to parent container's onCardDrop
     }
   };
 
@@ -163,9 +183,11 @@ const Canvas: React.FC<CanvasProps> = ({
               ? 'bg-white shadow-xl ring-2 ring-[#001033]/5'
               : 'bg-[#F9FAFB] hover:bg-white hover:shadow-md',
             isContainer
-              ? `min-h-[80px] p-5 rounded-2xl border-2 ${isHighlight
-                ? 'border-[#006dd8] bg-[#006dd8]/5'
-                : 'border-gray-100'
+              ? `min-h-[80px] p-5 rounded-2xl border-2 ${indicator === 'inside'
+                ? 'border-indigo-400 bg-indigo-50/60 ring-2 ring-indigo-300/30' // reorder→inside
+                : isHighlight
+                  ? 'border-[#006dd8] bg-[#006dd8]/5'                              // sidebar→inside
+                  : 'border-gray-100'
               }`
               : 'p-4 rounded-xl border border-gray-100',
           ].join(' ')}
@@ -212,7 +234,12 @@ const Canvas: React.FC<CanvasProps> = ({
           {/* Body */}
           {isContainer ? (
             <>
-              {isHighlight && !el.children?.length && (
+              {indicator === 'inside' && (
+                <p className="text-[10px] text-indigo-500 font-bold text-center mb-2 animate-pulse">
+                  ↓ Release to nest inside
+                </p>
+              )}
+              {isHighlight && !el.children?.length && indicator !== 'inside' && (
                 <p className="text-[10px] text-[#006dd8] font-bold text-center mb-2 animate-pulse">
                   Drop to add inside
                 </p>
