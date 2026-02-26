@@ -15,7 +15,7 @@ import {
   Save, Search, ChevronRight, Loader2,
   PanelRightClose, PanelRightOpen, Copy, History,
   PanelRight, PanelBottom, Maximize2, X,
-  Mail, LayoutTemplate, ChevronDown, UserCog, User, Send,
+  Mail, LayoutTemplate, ChevronDown, UserCog, User, Send, RefreshCcw,
 } from 'lucide-react';
 import { supabase, DBTemplate, DBTemplateHistory } from './lib/supabase';
 import { generateMJML } from './services/mjmlService';
@@ -91,6 +91,81 @@ const App: React.FC = () => {
   const [showSaveAs, setShowSaveAs] = useState(false);
   const [isSavingAs, setIsSavingAs] = useState(false);
 
+  // ── Ensure mj-body sentinel is always present ─────────────────────────────────
+  const ensureMjBody = useCallback((els: MJElement[]): MJElement[] => {
+    if (els.some(e => e.type === 'mj-body')) return els;
+    const HEAD_TYPES_LOCAL = new Set(['mj-attributes', 'mj-breakpoint', 'mj-font', 'mj-html-attributes', 'mj-preview', 'mj-style', 'mj-title']);
+    const mjBodyEl: MJElement = {
+      id: 'singleton-mj-body',
+      type: 'mj-body',
+      attributes: { 'background-color': '', width: '600px', 'css-class': '' },
+    };
+    const lastHeadIdx = els.reduce((last, el, i) => HEAD_TYPES_LOCAL.has(el.type) ? i : last, -1);
+    const result = [...els];
+    result.splice(lastHeadIdx + 1, 0, mjBodyEl);
+    return result;
+  }, []);
+
+  // ── Template sync (generator mode) ──────────────────────────────────────
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  /** Collect content + hidden overrides from the current campaign elements by ID */
+  const buildOverridesMap = useCallback((els: MJElement[]): Map<string, { content?: string; hidden?: boolean }> => {
+    const map = new Map<string, { content?: string; hidden?: boolean }>();
+    const walk = (items: MJElement[]) => {
+      for (const el of items) {
+        if (el.content !== undefined || el.hidden !== undefined) {
+          map.set(el.id, { content: el.content, hidden: el.hidden });
+        }
+        if (el.children) walk(el.children);
+      }
+    };
+    walk(els);
+    return map;
+  }, []);
+
+  /** Walk the TEMPLATE tree, restoring campaign content+hidden where IDs match */
+  const mergeWithTemplate = useCallback((
+    templateEls: MJElement[],
+    overrides: Map<string, { content?: string; hidden?: boolean }>
+  ): MJElement[] =>
+    templateEls.map(el => {
+      const ov = overrides.get(el.id);
+      return {
+        ...el,
+        content: ov?.content !== undefined ? ov.content : el.content,
+        hidden: ov?.hidden !== undefined ? ov.hidden : el.hidden,
+        children: el.children ? mergeWithTemplate(el.children, overrides) : undefined,
+      };
+    })
+    , []);
+
+  const handleSyncFromTemplate = useCallback(async () => {
+    if (!activeTemplateId) return;
+    if (!window.confirm(
+      'Sync layout from master template?\n\nYour text content and visibility settings will be preserved. Layout, order and styling will be updated from the template.'
+    )) return;
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase
+        .from('templates')
+        .select('elements')
+        .eq('id', activeTemplateId)
+        .single();
+      if (error) throw error;
+      const templateEls = data.elements as MJElement[];
+      const overrides = buildOverridesMap(elements);
+      const merged = mergeWithTemplate(ensureMjBody(templateEls), overrides);
+      setElements(merged);
+      setSelectedId(null);
+    } catch (err) {
+      console.error('Template sync failed:', err);
+      alert('Sync failed — see console for details.');
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [activeTemplateId, elements, buildOverridesMap, mergeWithTemplate, ensureMjBody]);
+
   // ── Send email modal (generator mode) ───────────────────────────────────
   const [showSendEmail, setShowSendEmail] = useState(false);
   const [sendHtml, setSendHtml] = useState('');
@@ -152,21 +227,6 @@ const App: React.FC = () => {
     return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
   }, []);
 
-  // ── Ensure mj-body sentinel is always present ─────────────────────────────────
-  const ensureMjBody = useCallback((els: MJElement[]): MJElement[] => {
-    if (els.some(e => e.type === 'mj-body')) return els;
-    const HEAD_TYPES_LOCAL = new Set(['mj-attributes', 'mj-breakpoint', 'mj-font', 'mj-html-attributes', 'mj-preview', 'mj-style', 'mj-title']);
-    const mjBodyEl: MJElement = {
-      id: 'singleton-mj-body',
-      type: 'mj-body',
-      attributes: { 'background-color': '', width: '600px', 'css-class': '' },
-    };
-    // Insert right after the last head element
-    const lastHeadIdx = els.reduce((last, el, i) => HEAD_TYPES_LOCAL.has(el.type) ? i : last, -1);
-    const result = [...els];
-    result.splice(lastHeadIdx + 1, 0, mjBodyEl);
-    return result;
-  }, []);
 
   // ── Element CRUD ───────────────────────────────────────────────────────────
   const handleAddComponent = useCallback((type: MJComponentType, parentId?: string) => {
@@ -780,6 +840,25 @@ const App: React.FC = () => {
                       ? <Loader2 size={14} className="animate-spin" />
                       : <Send size={14} />}
                     <span className="hidden md:inline">Send Email</span>
+                  </button>
+                )}
+
+                {/* Sync from template — generator mode, when a template is linked */}
+                {appMode === 'generator' && mainTab === 'editor' && activeTemplateId && (
+                  <button
+                    onClick={handleSyncFromTemplate}
+                    disabled={isSyncing || elements.length === 0}
+                    aria-label="Sync layout from master template"
+                    title="Pull latest layout from master template (keeps your content & visibility)"
+                    className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-bold border transition-all ${isSyncing || elements.length === 0
+                      ? 'border-gray-200 bg-white text-gray-300 cursor-not-allowed'
+                      : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 cursor-pointer'
+                      }`}
+                  >
+                    {isSyncing
+                      ? <Loader2 size={14} className="animate-spin" />
+                      : <RefreshCcw size={14} />}
+                    <span className="hidden md:inline">Sync layout</span>
                   </button>
                 )}
 
