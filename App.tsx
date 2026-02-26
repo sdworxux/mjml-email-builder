@@ -152,6 +152,22 @@ const App: React.FC = () => {
     return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
   }, []);
 
+  // ── Ensure mj-body sentinel is always present ─────────────────────────────────
+  const ensureMjBody = useCallback((els: MJElement[]): MJElement[] => {
+    if (els.some(e => e.type === 'mj-body')) return els;
+    const HEAD_TYPES_LOCAL = new Set(['mj-attributes', 'mj-breakpoint', 'mj-font', 'mj-html-attributes', 'mj-preview', 'mj-style', 'mj-title']);
+    const mjBodyEl: MJElement = {
+      id: 'singleton-mj-body',
+      type: 'mj-body',
+      attributes: { 'background-color': '', width: '600px', 'css-class': '' },
+    };
+    // Insert right after the last head element
+    const lastHeadIdx = els.reduce((last, el, i) => HEAD_TYPES_LOCAL.has(el.type) ? i : last, -1);
+    const result = [...els];
+    result.splice(lastHeadIdx + 1, 0, mjBodyEl);
+    return result;
+  }, []);
+
   // ── Element CRUD ───────────────────────────────────────────────────────────
   const handleAddComponent = useCallback((type: MJComponentType, parentId?: string) => {
     const config = MJML_COMPONENTS.find(c => c.type === type);
@@ -190,6 +206,11 @@ const App: React.FC = () => {
     });
 
   const handleDeleteElement = (id: string) => {
+    // mj-body is a protected singleton — cannot be deleted
+    const target = (function find(items: MJElement[]): MJElement | null {
+      for (const i of items) { if (i.id === id) return i; if (i.children) { const f = find(i.children); if (f) return f; } } return null;
+    })(elements);
+    if (target?.type === 'mj-body') return;
     const rm = (items: MJElement[]): MJElement[] =>
       items.filter(i => i.id !== id).map(i => i.children ? { ...i, children: rm(i.children) } : i);
     setElements(prev => rm(prev));
@@ -438,7 +459,7 @@ const App: React.FC = () => {
 
   // ── Load campaign ─────────────────────────────────────────────────────────
   const loadCampaign = (els: MJElement[], campaignId: string, campaignName: string) => {
-    setElements(els);
+    setElements(ensureMjBody(els));
     setSelectedId(null);
     setActiveCampaignId(campaignId);
     setTemplateName(campaignName);
@@ -453,7 +474,7 @@ const App: React.FC = () => {
 
   // ── Load template (can start a campaign when in generator mode) ───────────
   const loadTemplate = (tpl: DBTemplate) => {
-    setElements(tpl.elements as MJElement[]);
+    setElements(ensureMjBody(tpl.elements as MJElement[]));
     setSelectedId(null);
     setActiveTemplateId(tpl.id);
     setTemplateName(tpl.name);
@@ -464,7 +485,7 @@ const App: React.FC = () => {
 
   // ── Restore history version ────────────────────────────────────────────────
   const handleRestore = (snapshot: DBTemplateHistory) => {
-    setElements(snapshot.elements as MJElement[]);
+    setElements(ensureMjBody(snapshot.elements as MJElement[]));
     setTemplateName(snapshot.name);
     setShowRestore(false);
   };
@@ -751,8 +772,8 @@ const App: React.FC = () => {
                     aria-label="Send campaign as email"
                     title="Send campaign as email"
                     className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-bold border transition-all ${elements.length === 0 || isSendCompiling
-                        ? 'border-gray-200 bg-white text-gray-300 cursor-not-allowed'
-                        : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-300 cursor-pointer'
+                      ? 'border-gray-200 bg-white text-gray-300 cursor-not-allowed'
+                      : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-300 cursor-pointer'
                       }`}
                   >
                     {isSendCompiling

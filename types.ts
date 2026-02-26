@@ -8,7 +8,9 @@ export type MJComponentType =
   | 'mj-preview'
   | 'mj-style'
   | 'mj-title'
-  // ── Body: layout ──────────────────────────────────────────────────────────
+  // ── Body: root ────────────────────────────────────────────────────────
+  | 'mj-body'
+  // ── Body: layout ─────────────────────────────────────────────────────────
   | 'mj-wrapper'
   | 'mj-section'
   | 'mj-column'

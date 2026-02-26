@@ -29,7 +29,7 @@ const CampaignsPanel: React.FC<CampaignsPanelProps> = ({ onLoad, onNewFromTempla
         try {
             const [{ data: c, error: ce }, { data: t, error: te }] = await Promise.all([
                 supabase.from('campaigns').select('*').order('updated_at', { ascending: false }),
-                supabase.from('templates').select('id,name').eq('is_master', true),
+                supabase.from('templates').select('id,name'),
             ]);
             if (ce) throw ce;
             if (te) throw te;

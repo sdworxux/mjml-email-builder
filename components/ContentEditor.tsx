@@ -9,6 +9,8 @@ interface ContentEditorProps {
      *  'code'    = dark textarea (for mj-raw, mj-table, mj-style …) */
     mode: 'wysiwyg' | 'code';
     placeholder?: string;
+    /** When true the code editor expands to fill its flex container */
+    fullHeight?: boolean;
 }
 
 const ContentEditor: React.FC<ContentEditorProps> = ({
@@ -16,6 +18,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
     onChange,
     mode,
     placeholder = 'Enter content…',
+    fullHeight = false,
 }) => {
     const divRef = useRef<HTMLDivElement>(null);
     // Track the last value we set so we don't reset cursor position needlessly
@@ -106,7 +109,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
     /* ── Code (raw HTML) mode ─────────────────────────────────────────────── */
     if (mode === 'code') {
         return (
-            <div className="rounded-xl overflow-hidden border border-gray-200">
+            <div className={`rounded-xl overflow-hidden border border-gray-200 ${fullHeight ? 'flex-1 flex flex-col min-h-0' : ''}`}>
                 <div className="flex items-center justify-between px-3 py-1.5 bg-gray-900 border-b border-gray-700">
                     <span className="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-widest">HTML</span>
                     <Code size={12} className="text-gray-500" aria-hidden="true" />
@@ -116,7 +119,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     onChange={e => onChange(e.target.value)}
                     placeholder={placeholder}
                     spellCheck={false}
-                    className="w-full font-mono text-[11px] leading-relaxed p-3 bg-gray-900 text-green-300 resize-none outline-none min-h-[120px] placeholder:text-gray-600"
+                    className={`w-full font-mono text-[11px] leading-relaxed p-3 bg-gray-900 text-green-300 resize-none outline-none placeholder:text-gray-600 ${fullHeight ? 'flex-1 min-h-0' : 'min-h-[120px]'}`}
                     style={{ tabSize: 2 }}
                 />
             </div>

@@ -186,6 +186,49 @@ const Canvas: React.FC<CanvasProps> = ({
 
   // ── Render ────────────────────────────────────────────────────────────────
   const renderCard = (el: MJElement, depth = 0): React.ReactNode => {
+    // ── mj-body: special locked singleton card ────────────────────────────
+    if (el.type === 'mj-body') {
+      const isActive = selectedId === el.id;
+      return (
+        <div key={el.id} className="relative mb-2">
+          <div
+            onClick={ev => { ev.stopPropagation(); onSelect(el.id); }}
+            onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.stopPropagation(); onSelect(el.id); } }}
+            role="button"
+            tabIndex={0}
+            aria-selected={isActive}
+            aria-label="mj-body container"
+            className={[
+              'p-4 rounded-xl border-2 transition-all duration-150 cursor-pointer select-none',
+              isActive
+                ? 'bg-white shadow-xl border-[#001033]/20 ring-2 ring-[#001033]/5'
+                : 'bg-[#F4F5F8] hover:bg-white hover:shadow-md border-dashed border-gray-200',
+            ].join(' ')}
+          >
+            <div className="flex items-center gap-2">
+              <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${isActive ? 'bg-[#001033] text-white' : 'bg-gray-200 text-[#737477]'}`}>
+                body
+              </span>
+              {/* Show key attrs inline */}
+              {(() => {
+                const w = el.attributes['width'] || '600px';
+                const bg = el.attributes['background-color'];
+                return (
+                  <span className="text-[10px] text-[#737477] font-medium truncate">
+                    {w}{bg ? ` · ${bg}` : ''}
+                  </span>
+                );
+              })()}
+              <span className="ml-auto flex items-center gap-1 text-[9px] text-[#B0B2B5] font-bold shrink-0">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                locked
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const isActive = selectedId === el.id;
     const isDragging = draggingId === el.id;
     const isHidden = el.hidden === true;
@@ -254,8 +297,8 @@ const Canvas: React.FC<CanvasProps> = ({
                   onClick={e => { if (!isGenerator) { e.stopPropagation(); setEditingLabelId(el.id); } }}
                   title={isGenerator ? el.label : 'Click to rename'}
                   className={`flex items-center gap-1 text-[11px] font-semibold italic truncate max-w-[180px] ${isGenerator
-                      ? 'text-[#737477] cursor-default'
-                      : 'text-[#006dd8] cursor-text hover:text-[#0055c0] hover:underline'
+                    ? 'text-[#737477] cursor-default'
+                    : 'text-[#006dd8] cursor-text hover:text-[#0055c0] hover:underline'
                     }`}
                 >
                   <Tag size={9} className="shrink-0" aria-hidden="true" />

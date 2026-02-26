@@ -42,6 +42,30 @@ function mjmlCompilerPlugin(): Plugin {
             beautify: true,
           });
 
+          // ── Explicit juice inlining for mj-style inline="inline" ──────────
+          // MJML's own juice pass doesn't reliably inline custom class selectors
+          // (e.g. .content-wrapper) added via css-class. We extract all CSS from
+          // inline mj-style blocks and re-run juice ourselves so those styles
+          // correctly land in `style="..."` on matching HTML elements.
+          let finalHtml = result.html ?? '';
+          if (finalHtml) {
+            const inlineCssBlocks: string[] = [];
+            const mjStyleRe = /<mj-style[^>]+inline=["']inline["'][^>]*>([\s\S]*?)<\/mj-style>/gi;
+            let m: RegExpExecArray | null;
+            while ((m = mjStyleRe.exec(mjmlSource)) !== null) {
+              inlineCssBlocks.push(m[1]);
+            }
+            if (inlineCssBlocks.length > 0) {
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              const juice = (await import('juice')).default;
+              finalHtml = juice.inlineContent(finalHtml, inlineCssBlocks.join('\n'), {
+                removeStyleTags: false,   // keep existing <style> blocks intact
+                preserveMediaQueries: true,
+                applyWidthAttributes: false,
+              });
+            }
+          }
+
           res.writeHead(200, { 'Content-Type': 'application/json' });
 
           // Log warnings to the Vite terminal so they are easy to diagnose
@@ -54,7 +78,7 @@ function mjmlCompilerPlugin(): Plugin {
 
           res.end(
             JSON.stringify({
-              html: result.html,
+              html: finalHtml,
               errors: result.errors,
             }),
           );

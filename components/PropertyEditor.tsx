@@ -69,11 +69,11 @@ const PropertyEditor: React.FC<PropertyEditorProps> = ({
     ...element.attributes,
   };
 
-  // Sort: mj-class first, everything else follows definition order
+  // Sort: mj-class first, everything else alphabetically
   const attrEntries = Object.entries(mergedAttrs).sort(([a], [b]) => {
     if (a === 'mj-class') return -1;
     if (b === 'mj-class') return 1;
-    return 0;
+    return a.localeCompare(b);
   });
 
   const hasAttrs = attrEntries.length > 0;
@@ -122,155 +122,167 @@ const PropertyEditor: React.FC<PropertyEditorProps> = ({
         </div>
       )}
 
-      {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-7">
+      {/* Scrollable body — full-height flex for code-only elements */}
+      {(() => {
+        const codeOnly = contentMode === 'code' && !hasAttrs && !isGenerator;
+        return (
+          <div className={codeOnly
+            ? 'flex-1 flex flex-col p-5 gap-7 min-h-0'
+            : 'flex-1 overflow-y-auto p-5 space-y-7'
+          }>
 
-        {/* ── Section Name — always first (builder mode only) ── */}
-        {!isGenerator && (
-          <section aria-label="Section name">
-            <div className="flex items-center space-x-2 mb-3">
-              <Tag size={13} className="text-[#737477]" aria-hidden="true" />
-              <h3 className="text-[10px] font-bold text-[#737477] uppercase tracking-widest">
-                Section Name
-              </h3>
-            </div>
-            <input
-              id={`label-${element.id}`}
-              type="text"
-              value={element.label ?? ''}
-              onChange={e => onUpdate({ ...element, label: e.target.value.trim() ? e.target.value : undefined })}
-              placeholder="e.g. Hero, Footer, CTA…"
-              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-[#001033] focus:ring-2 focus:ring-[#006dd8]/20 focus:border-[#006dd8] outline-none transition-all shadow-sm placeholder-[#B0B2B5]"
-            />
-            <p className="mt-1.5 text-[9px] text-[#737477] font-medium px-0.5">
-              Shown next to the section tag in the canvas editor.
-            </p>
-          </section>
-        )}
+            {/* ── Section Name — always first (builder mode only) ── */}
+            {!isGenerator && (
+              <section aria-label="Section name">
+                <div className="flex items-center space-x-2 mb-3">
+                  <Tag size={13} className="text-[#737477]" aria-hidden="true" />
+                  <h3 className="text-[10px] font-bold text-[#737477] uppercase tracking-widest">
+                    Section Name
+                  </h3>
+                </div>
+                <input
+                  id={`label-${element.id}`}
+                  type="text"
+                  value={element.label ?? ''}
+                  onChange={e => onUpdate({ ...element, label: e.target.value.trim() ? e.target.value : undefined })}
+                  placeholder="e.g. Hero, Footer, CTA…"
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-[#001033] focus:ring-2 focus:ring-[#006dd8]/20 focus:border-[#006dd8] outline-none transition-all shadow-sm placeholder-[#B0B2B5]"
+                />
+                <p className="mt-1.5 text-[9px] text-[#737477] font-medium px-0.5">
+                  Shown next to the section tag in the canvas editor.
+                </p>
+              </section>
+            )}
 
-        {/* ── Content section (WYSIWYG or code) ── */}
-        {contentMode && (
-          <section aria-label="Content editor">
-            <div className="flex items-center space-x-2 mb-3">
-              <FileCode size={13} className="text-[#737477]" aria-hidden="true" />
-              <h3 className="text-[10px] font-bold text-[#737477] uppercase tracking-widest">
-                Content
-              </h3>
-            </div>
-            <ContentEditor
-              value={element.content ?? ''}
-              onChange={handleContentChange}
-              mode={contentMode}
-              placeholder={
-                contentMode === 'code'
-                  ? '<!-- Enter HTML here -->'
-                  : 'Type your content…'
-              }
-            />
-          </section>
-        )}
+            {/* ── Content section (WYSIWYG or code) ── */}
+            {contentMode && (
+              <section
+                aria-label="Content editor"
+                className={contentMode === 'code' && !hasAttrs && !isGenerator ? 'flex-1 flex flex-col min-h-0' : ''}
+              >
+                <div className="flex items-center space-x-2 mb-3">
+                  <FileCode size={13} className="text-[#737477]" aria-hidden="true" />
+                  <h3 className="text-[10px] font-bold text-[#737477] uppercase tracking-widest">
+                    Content
+                  </h3>
+                </div>
+                <ContentEditor
+                  value={element.content ?? ''}
+                  onChange={handleContentChange}
+                  mode={contentMode}
+                  fullHeight={contentMode === 'code' && !hasAttrs && !isGenerator}
+                  placeholder={
+                    contentMode === 'code'
+                      ? '<!-- Enter HTML here -->'
+                      : 'Type your content…'
+                  }
+                />
+              </section>
+            )}
 
-        {/* ── Style / attribute fields — hidden in generator mode ── */}
-        {hasAttrs && !isGenerator && (
-          <section aria-label="Style attributes">
-            <div className="flex items-center space-x-2 mb-3">
-              <Palette size={13} className="text-[#737477]" aria-hidden="true" />
-              <h3 className="text-[10px] font-bold text-[#737477] uppercase tracking-widest">
-                Style Attributes
-              </h3>
-            </div>
+            {/* ── Style / attribute fields — hidden in generator mode ── */}
+            {hasAttrs && !isGenerator && (
+              <section aria-label="Style attributes">
+                <div className="flex items-center space-x-2 mb-3">
+                  <Palette size={13} className="text-[#737477]" aria-hidden="true" />
+                  <h3 className="text-[10px] font-bold text-[#737477] uppercase tracking-widest">
+                    Style Attributes
+                  </h3>
+                </div>
 
-            <div className="space-y-4">
-              {attrEntries.map(([key, val]) => {
-                const pickerOpen = assetPickerKey === key;
-                const showPicker = isSrcAttr(key);
+                <div className="space-y-4">
+                  {attrEntries.map(([key, val]) => {
+                    const pickerOpen = assetPickerKey === key;
+                    const showPicker = isSrcAttr(key);
 
-                /* ── Colour swatch inline for colour-like attrs ── */
-                const isColor = key.toLowerCase().includes('color') || key.toLowerCase().includes('colour');
-                const isUrl = key.includes('url') || key === 'href' || key === 'src';
+                    /* ── Colour swatch inline for colour-like attrs ── */
+                    const isColor = key.toLowerCase().includes('color') || key.toLowerCase().includes('colour');
+                    const isUrl = key.includes('url') || key === 'href' || key === 'src';
 
-                return (
-                  <div key={key}>
-                    <label
-                      htmlFor={`attr-${element.id}-${key}`}
-                      className="block text-[10px] font-bold text-[#737477] uppercase tracking-tight mb-1 px-0.5"
-                    >
-                      {key.replace(/-/g, ' ')}
-                    </label>
-
-                    <div className="flex gap-2 items-center">
-                      {/* Colour preview pill */}
-                      {isColor && val && String(val).startsWith('#') && (
-                        <div
-                          className="w-5 h-5 rounded-md border border-gray-200 shrink-0"
-                          style={{ background: val }}
-                          aria-hidden="true"
-                        />
-                      )}
-
-                      <input
-                        id={`attr-${element.id}-${key}`}
-                        type={isColor ? 'text' : 'text'}
-                        value={val}
-                        onChange={e => handleAttrChange(key, e.target.value)}
-                        className="flex-1 min-w-0 px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-[#001033] focus:ring-2 focus:ring-[#006dd8]/20 focus:border-[#006dd8] outline-none transition-all shadow-sm"
-                        placeholder={isColor ? '#rrggbb' : isUrl ? 'https://' : ''}
-                      />
-
-                      {/* Asset picker toggle for URL-like attrs */}
-                      {showPicker && (
-                        <button
-                          type="button"
-                          onClick={() => setAssetPickerKey(pickerOpen ? null : key)}
-                          aria-label={pickerOpen ? 'Close asset picker' : 'Pick from assets'}
-                          title="Pick from assets"
-                          className={`shrink-0 p-2 rounded-xl border transition-all cursor-pointer ${pickerOpen
-                            ? 'bg-[#006dd8] border-[#006dd8] text-white'
-                            : 'bg-white border-gray-200 text-[#737477] hover:border-[#006dd8] hover:text-[#006dd8]'
-                            }`}
+                    return (
+                      <div key={key}>
+                        <label
+                          htmlFor={`attr-${element.id}-${key}`}
+                          className="block text-[10px] font-bold text-[#737477] uppercase tracking-tight mb-1 px-0.5"
                         >
-                          <ImageIcon size={14} aria-hidden="true" />
-                        </button>
-                      )}
-                    </div>
+                          {key.replace(/-/g, ' ')}
+                        </label>
 
-                    {/* Inline asset picker */}
-                    {showPicker && pickerOpen && (
-                      <div className="mt-3 p-3 bg-white border border-[#006dd8]/20 rounded-xl shadow-sm">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-bold text-[#737477] uppercase tracking-wider flex items-center space-x-1">
-                            <ImageIcon size={10} />
-                            <span>Pick an asset</span>
-                          </span>
-                          <button
-                            onClick={() => setAssetPickerKey(null)}
-                            aria-label="Close picker"
-                            className="p-0.5 hover:bg-gray-100 rounded transition-colors cursor-pointer"
-                          >
-                            <X size={12} className="text-[#737477]" />
-                          </button>
+                        <div className="flex gap-2 items-center">
+                          {/* Colour preview pill */}
+                          {isColor && val && String(val).startsWith('#') && (
+                            <div
+                              className="w-5 h-5 rounded-md border border-gray-200 shrink-0"
+                              style={{ background: val }}
+                              aria-hidden="true"
+                            />
+                          )}
+
+                          <input
+                            id={`attr-${element.id}-${key}`}
+                            type={isColor ? 'text' : 'text'}
+                            value={val}
+                            onChange={e => handleAttrChange(key, e.target.value)}
+                            className="flex-1 min-w-0 px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-[#001033] focus:ring-2 focus:ring-[#006dd8]/20 focus:border-[#006dd8] outline-none transition-all shadow-sm"
+                            placeholder={isColor ? '#rrggbb' : isUrl ? 'https://' : ''}
+                          />
+
+                          {/* Asset picker toggle for URL-like attrs */}
+                          {showPicker && (
+                            <button
+                              type="button"
+                              onClick={() => setAssetPickerKey(pickerOpen ? null : key)}
+                              aria-label={pickerOpen ? 'Close asset picker' : 'Pick from assets'}
+                              title="Pick from assets"
+                              className={`shrink-0 p-2 rounded-xl border transition-all cursor-pointer ${pickerOpen
+                                ? 'bg-[#006dd8] border-[#006dd8] text-white'
+                                : 'bg-white border-gray-200 text-[#737477] hover:border-[#006dd8] hover:text-[#006dd8]'
+                                }`}
+                            >
+                              <ImageIcon size={14} aria-hidden="true" />
+                            </button>
+                          )}
                         </div>
-                        <AssetsPanel
-                          pickerMode
-                          onSelect={asset => handleAssetSelect(key, asset)}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
 
-        {/* Placeholder for container/no-attribute types */}
-        {!hasAttrs && !contentMode && (
-          <div className="flex flex-col items-center justify-center py-12 text-center text-[#737477]">
-            <Settings size={24} className="mb-2 opacity-30" />
-            <p className="text-xs font-medium">No configurable properties</p>
+                        {/* Inline asset picker */}
+                        {showPicker && pickerOpen && (
+                          <div className="mt-3 p-3 bg-white border border-[#006dd8]/20 rounded-xl shadow-sm">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[10px] font-bold text-[#737477] uppercase tracking-wider flex items-center space-x-1">
+                                <ImageIcon size={10} />
+                                <span>Pick an asset</span>
+                              </span>
+                              <button
+                                onClick={() => setAssetPickerKey(null)}
+                                aria-label="Close picker"
+                                className="p-0.5 hover:bg-gray-100 rounded transition-colors cursor-pointer"
+                              >
+                                <X size={12} className="text-[#737477]" />
+                              </button>
+                            </div>
+                            <AssetsPanel
+                              pickerMode
+                              onSelect={asset => handleAssetSelect(key, asset)}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* Placeholder for container/no-attribute types */}
+            {!hasAttrs && !contentMode && (
+              <div className="flex flex-col items-center justify-center py-12 text-center text-[#737477]">
+                <Settings size={24} className="mb-2 opacity-30" />
+                <p className="text-xs font-medium">No configurable properties</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        );
+      })()}
 
       {/* Footer — delete */}
       <div className="p-5 border-t border-[#E2E8F0] shrink-0">

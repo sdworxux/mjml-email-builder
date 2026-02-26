@@ -20,7 +20,6 @@ const SELF_CLOSING = new Set<MJComponentType>([
   'mj-divider',
   'mj-spacer',
   'mj-carousel-image',
-  'mj-html-attributes',
 ]);
 
 // ── Font helpers ──────────────────────────────────────────────────────────────
@@ -107,7 +106,9 @@ export const generateMJML = (elements: MJElement[]): string => {
 
   const visible = stripHidden(elements);
   const headEls = visible.filter(el => HEAD_TYPES.has(el.type));
-  const bodyEls = visible.filter(el => !HEAD_TYPES.has(el.type));
+  // Separate out the singleton mj-body element (if present) from the rest of the body
+  const mjBodyEl = visible.find(el => el.type === 'mj-body');
+  const bodyEls = visible.filter(el => !HEAD_TYPES.has(el.type) && el.type !== 'mj-body');
 
   const renderEl = (el: MJElement, indent = '    '): string => {
     // Merge defaultAttrs so attributes added to constants after a template was
@@ -175,7 +176,18 @@ export const generateMJML = (elements: MJElement[]): string => {
     : '';
 
   // ── Assemble body block ────────────────────────────────────────────────────
-  const bodyBlock = `  <mj-body>\n${bodyEls.map(el => renderEl(el, '    ')).join('\n')}\n  </mj-body>`;
+  // Use mj-body element's attributes (if present) on the wrapper tag
+  const mjBodyDef = MJML_COMPONENTS.find(c => c.type === 'mj-body');
+  const mjBodyAttrs: Record<string, string> = {
+    ...(mjBodyDef?.defaultAttrs ?? {}),
+    ...(mjBodyEl?.attributes ?? {}),
+  };
+  const bodyAttrStr = Object.entries(mjBodyAttrs)
+    .filter(([, v]) => v !== '')
+    .map(([k, v]) => `${k}="${v}"`)
+    .join(' ');
+  const bodyTag = bodyAttrStr ? `mj-body ${bodyAttrStr}` : 'mj-body';
+  const bodyBlock = `  <${bodyTag}>\n${bodyEls.map(el => renderEl(el, '    ')).join('\n')}\n  </mj-body>`;
 
   const parts = [headBlock, bodyBlock].filter(Boolean);
   return `<mjml>\n${parts.join('\n')}\n</mjml>`;
