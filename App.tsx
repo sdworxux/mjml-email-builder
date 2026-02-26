@@ -109,11 +109,26 @@ const App: React.FC = () => {
   // ── Template sync (generator mode) ──────────────────────────────────────
   const [isSyncing, setIsSyncing] = useState(false);
 
-  /** Collect content + hidden overrides from the current campaign elements by ID */
+  /** Collect content + hidden overrides from the current campaign elements by ID.
+   *  Head elements (except mj-title / mj-preview) are deliberately excluded —
+   *  the template always wins for structural head content (styles, raw, fonts etc.).
+   */
   const buildOverridesMap = useCallback((els: MJElement[]): Map<string, { content?: string; hidden?: boolean }> => {
+    const HEAD_TYPES_LOCAL = new Set([
+      'mj-attributes', 'mj-breakpoint', 'mj-font', 'mj-html-attributes',
+      'mj-style', 'mj-raw', 'mj-body',
+    ]);
+    // mj-title and mj-preview are campaign-specific — always preserve from campaign
+    const CAMPAIGN_HEAD = new Set(['mj-title', 'mj-preview']);
+
     const map = new Map<string, { content?: string; hidden?: boolean }>();
     const walk = (items: MJElement[]) => {
       for (const el of items) {
+        // Skip pure head layout elements — template always wins for these
+        if (HEAD_TYPES_LOCAL.has(el.type) && !CAMPAIGN_HEAD.has(el.type)) {
+          if (el.children) walk(el.children);
+          continue;
+        }
         if (el.content !== undefined || el.hidden !== undefined) {
           map.set(el.id, { content: el.content, hidden: el.hidden });
         }
@@ -518,10 +533,11 @@ const App: React.FC = () => {
   };
 
   // ── Load campaign ─────────────────────────────────────────────────────────
-  const loadCampaign = (els: MJElement[], campaignId: string, campaignName: string) => {
+  const loadCampaign = (els: MJElement[], campaignId: string, campaignName: string, templateId: string | null = null) => {
     setElements(ensureMjBody(els));
     setSelectedId(null);
     setActiveCampaignId(campaignId);
+    setActiveTemplateId(templateId);
     setTemplateName(campaignName);
     setMainTab('editor');
   };

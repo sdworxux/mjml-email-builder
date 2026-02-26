@@ -105,10 +105,21 @@ export const generateMJML = (elements: MJElement[]): string => {
       .map(el => el.children ? { ...el, children: stripHidden(el.children) } : el);
 
   const visible = stripHidden(elements);
-  const headEls = visible.filter(el => HEAD_TYPES.has(el.type));
+
+  // Position-based head detection for mj-raw:
+  // mj-raw elements that appear BEFORE the first real body container are head-level
+  // (MJML places head-positioned mj-raw content inside the HTML <head>).
+  const BODY_CONTAINER_TYPES = new Set(['mj-section', 'mj-wrapper', 'mj-hero', 'mj-group', 'mj-body']);
+  const firstBodyIdx = visible.findIndex(el => BODY_CONTAINER_TYPES.has(el.type));
+  const headEnd = firstBodyIdx === -1 ? visible.length : firstBodyIdx;
+
+  const isHeadEl = (el: MJElement, i: number) =>
+    HEAD_TYPES.has(el.type) || (el.type === 'mj-raw' && i < headEnd);
+
+  const headEls = visible.filter((el, i) => isHeadEl(el, i));
   // Separate out the singleton mj-body element (if present) from the rest of the body
   const mjBodyEl = visible.find(el => el.type === 'mj-body');
-  const bodyEls = visible.filter(el => !HEAD_TYPES.has(el.type) && el.type !== 'mj-body');
+  const bodyEls = visible.filter((el, i) => !isHeadEl(el, i) && el.type !== 'mj-body');
 
   const renderEl = (el: MJElement, indent = '    '): string => {
     // Merge defaultAttrs so attributes added to constants after a template was

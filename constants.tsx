@@ -83,6 +83,15 @@ export const MJML_COMPONENTS: ComponentDef[] = [
     defaultAttrs: {},
   },
   {
+    type: 'mj-raw',
+    label: 'Head Raw HTML',
+    icon: <Code size={16} />,
+    group: 'head',
+    isContainer: false,
+    defaultAttrs: {},
+    defaultContent: '<meta name="color-scheme" content="light dark">\n<meta name="supported-color-schemes" content="light dark">',
+  },
+  {
     type: 'mj-preview',
     label: 'Preview',
     icon: <Eye size={16} />,

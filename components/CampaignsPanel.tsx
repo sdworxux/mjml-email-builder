@@ -8,7 +8,7 @@ import {
 
 interface CampaignsPanelProps {
     /** Called when the user opens a campaign for editing */
-    onLoad: (elements: MJElement[], campaignId: string, campaignName: string) => void;
+    onLoad: (elements: MJElement[], campaignId: string, campaignName: string, templateId: string | null) => void;
     /** Called when the user wants to create a new campaign from a master template */
     onNewFromTemplate: () => void;
 }
@@ -150,7 +150,7 @@ const CampaignsPanel: React.FC<CampaignsPanelProps> = ({ onLoad, onNewFromTempla
                                             : <Trash2 size={13} />}
                                     </button>
                                     <button
-                                        onClick={() => onLoad(campaign.elements as MJElement[], campaign.id, campaign.name)}
+                                        onClick={() => onLoad(campaign.elements as MJElement[], campaign.id, campaign.name, campaign.template_id ?? null)}
                                         className="flex items-center gap-1 px-3 py-1.5 bg-[#001033] text-white text-[10px] font-bold rounded-lg hover:bg-[#002266] transition-colors cursor-pointer"
                                     >
                                         Open <ChevronRight size={11} />
