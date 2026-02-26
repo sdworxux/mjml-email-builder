@@ -1,16 +1,10 @@
 import React, { useState } from 'react';
 import { MJElement, MJComponentType, AppMode } from '../types';
-import { X, Trash2, Settings, Palette, ImageIcon, FileCode, Lock } from 'lucide-react';
+import { X, Trash2, Settings, Palette, ImageIcon, FileCode, Lock, Tag } from 'lucide-react';
 import AssetsPanel, { DBAsset } from './AssetsPanel';
 import ContentEditor from './ContentEditor';
 import { MJML_COMPONENTS } from '../constants';
 
-// Components whose defaultAttrs include 'mj-class'
-const MJ_CLASS_SUPPORTED = new Set<MJComponentType>(
-  MJML_COMPONENTS
-    .filter(c => 'mj-class' in c.defaultAttrs)
-    .map(c => c.type)
-);
 
 interface PropertyEditorProps {
   element: MJElement | null;
@@ -67,13 +61,16 @@ const PropertyEditor: React.FC<PropertyEditorProps> = ({
 
   const isSrcAttr = (key: string) => ['src', 'background-url', 'href'].includes(key);
 
-  // Ensure mj-class is present for supported components (handles templates saved before the field was added)
-  const attrs = MJ_CLASS_SUPPORTED.has(element.type) && !('mj-class' in element.attributes)
-    ? { 'mj-class': '', ...element.attributes }
-    : element.attributes;
+  // Merge defaultAttrs so attrs added to constants after a template was saved
+  // always appear in the panel. Live user-set values win; we only fill gaps.
+  const componentDef = MJML_COMPONENTS.find(c => c.type === element.type);
+  const mergedAttrs: Record<string, string> = {
+    ...(componentDef?.defaultAttrs ?? {}),
+    ...element.attributes,
+  };
 
-  // Sort so mj-class always appears first, everything else keeps natural order
-  const attrEntries = Object.entries(attrs).sort(([a], [b]) => {
+  // Sort: mj-class first, everything else follows definition order
+  const attrEntries = Object.entries(mergedAttrs).sort(([a], [b]) => {
     if (a === 'mj-class') return -1;
     if (b === 'mj-class') return 1;
     return 0;
@@ -127,6 +124,29 @@ const PropertyEditor: React.FC<PropertyEditorProps> = ({
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto p-5 space-y-7">
+
+        {/* ── Section Name — always first (builder mode only) ── */}
+        {!isGenerator && (
+          <section aria-label="Section name">
+            <div className="flex items-center space-x-2 mb-3">
+              <Tag size={13} className="text-[#737477]" aria-hidden="true" />
+              <h3 className="text-[10px] font-bold text-[#737477] uppercase tracking-widest">
+                Section Name
+              </h3>
+            </div>
+            <input
+              id={`label-${element.id}`}
+              type="text"
+              value={element.label ?? ''}
+              onChange={e => onUpdate({ ...element, label: e.target.value.trim() ? e.target.value : undefined })}
+              placeholder="e.g. Hero, Footer, CTA…"
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-[#001033] focus:ring-2 focus:ring-[#006dd8]/20 focus:border-[#006dd8] outline-none transition-all shadow-sm placeholder-[#B0B2B5]"
+            />
+            <p className="mt-1.5 text-[9px] text-[#737477] font-medium px-0.5">
+              Shown next to the section tag in the canvas editor.
+            </p>
+          </section>
+        )}
 
         {/* ── Content section (WYSIWYG or code) ── */}
         {contentMode && (

@@ -14,12 +14,20 @@ type Tab = 'mjml' | 'html' | 'view';
 type CompileState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'success'; html: string; errors: unknown[] }
+  | { status: 'success'; html: string; errors: MJMLError[] }
   | { status: 'error'; message: string };
 
-const PreviewPanel: React.FC<PreviewPanelProps> = ({ elements, defaultTab = 'mjml' }) => {
+interface MJMLError {
+  formattedMessage?: string;
+  message?: string;
+  tagName?: string;
+  line?: number;
+}
+
+const PreviewPanel: React.FC<PreviewPanelProps> = ({ elements, defaultTab = 'view' }) => {
   const [tab, setTab] = useState<Tab>(defaultTab);
   const [compile, setCompile] = useState<CompileState>({ status: 'idle' });
+  const [warningsOpen, setWarningsOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   // ── Export split-button state ──────────────────────────────────────────────
@@ -160,15 +168,48 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ elements, defaultTab = 'mjm
     </div>
   );
 
-  const WarningBanner = () =>
-    compile.status === 'success' && compile.errors.length > 0 ? (
-      <div className="px-5 py-2 bg-amber-50 border-b border-amber-100 flex items-center space-x-2 shrink-0">
-        <AlertTriangle size={11} className="text-amber-500 shrink-0" />
-        <p className="text-[10px] text-amber-700 font-medium">
-          {compile.errors.length} warning{compile.errors.length > 1 ? 's' : ''} — preview may differ slightly
-        </p>
+  const WarningBanner = () => {
+    if (compile.status !== 'success' || compile.errors.length === 0) return null;
+    const count = compile.errors.length;
+    return (
+      <div className="shrink-0 border-b border-amber-100">
+        {/* Header row — always visible, click to expand */}
+        <button
+          onClick={() => setWarningsOpen(v => !v)}
+          className="w-full flex items-center justify-between px-5 py-2 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer text-left"
+          aria-expanded={warningsOpen}
+          aria-label={`${count} MJML warning${count > 1 ? 's' : ''} — click to ${warningsOpen ? 'collapse' : 'expand'}`}
+        >
+          <div className="flex items-center space-x-2">
+            <AlertTriangle size={11} className="text-amber-500 shrink-0" />
+            <p className="text-[10px] text-amber-700 font-semibold">
+              {count} warning{count > 1 ? 's' : ''} — preview may differ slightly
+            </p>
+          </div>
+          <ChevronDown
+            size={11}
+            className={`text-amber-500 transition-transform duration-150 ${warningsOpen ? 'rotate-180' : ''
+              }`}
+          />
+        </button>
+
+        {/* Expandable detail list */}
+        {warningsOpen && (
+          <div className="bg-amber-50 px-5 pb-3 space-y-1 max-h-48 overflow-y-auto">
+            {compile.errors.map((err, i) => {
+              const e = err as MJMLError;
+              const text = e.formattedMessage ?? e.message ?? JSON.stringify(err);
+              return (
+                <p key={i} className="text-[10px] font-mono text-amber-800 leading-snug">
+                  {text}
+                </p>
+              );
+            })}
+          </div>
+        )}
       </div>
-    ) : null;
+    );
+  };
 
   return (
     <div className="w-full h-full bg-[#FBFBFB] flex flex-col">
@@ -177,16 +218,22 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ elements, defaultTab = 'mjm
       <div className="px-4 py-3 border-b border-[#E2E8F0] flex items-center justify-between bg-white shrink-0">
         <div className="flex space-x-0.5 p-1 bg-gray-100 rounded-xl" role="tablist" aria-label="Preview panel">
 
-          {/* MJML tab */}
+          {/* VIEW tab — first */}
           <button
             role="tab"
-            aria-selected={tab === 'mjml'}
-            onClick={() => setTab('mjml')}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${tab === 'mjml' ? 'bg-white shadow-sm text-[#001033]' : 'text-[#737477] hover:text-[#001033]'
+            aria-selected={tab === 'view'}
+            onClick={() => setTab('view')}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${tab === 'view' ? 'bg-white shadow-sm text-[#001033]' : 'text-[#737477] hover:text-[#001033]'
               }`}
           >
-            <Code size={11} aria-hidden="true" />
-            <span>MJML</span>
+            <Eye size={11} aria-hidden="true" />
+            <span>View</span>
+            {tab === 'view' && compile.status === 'loading' && (
+              <Loader2 size={9} className="animate-spin text-[#006dd8]" />
+            )}
+            {compile.status === 'error' && tab === 'view' && (
+              <AlertTriangle size={9} className="text-red-400" />
+            )}
           </button>
 
           {/* HTML tab */}
@@ -204,22 +251,16 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ elements, defaultTab = 'mjm
             )}
           </button>
 
-          {/* VIEW tab */}
+          {/* MJML tab */}
           <button
             role="tab"
-            aria-selected={tab === 'view'}
-            onClick={() => setTab('view')}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${tab === 'view' ? 'bg-white shadow-sm text-[#001033]' : 'text-[#737477] hover:text-[#001033]'
+            aria-selected={tab === 'mjml'}
+            onClick={() => setTab('mjml')}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${tab === 'mjml' ? 'bg-white shadow-sm text-[#001033]' : 'text-[#737477] hover:text-[#001033]'
               }`}
           >
-            <Eye size={11} aria-hidden="true" />
-            <span>View</span>
-            {tab === 'view' && compile.status === 'loading' && (
-              <Loader2 size={9} className="animate-spin text-[#006dd8]" />
-            )}
-            {compile.status === 'error' && tab !== 'mjml' && (
-              <AlertTriangle size={9} className="text-red-400" />
-            )}
+            <Code size={11} aria-hidden="true" />
+            <span>MJML</span>
           </button>
         </div>
 

@@ -43,6 +43,15 @@ function mjmlCompilerPlugin(): Plugin {
           });
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
+
+          // Log warnings to the Vite terminal so they are easy to diagnose
+          if (result.errors?.length) {
+            console.warn(`[mjml] ${result.errors.length} warning(s):`);
+            for (const err of result.errors) {
+              console.warn(' »', (err as { formattedMessage?: string }).formattedMessage ?? JSON.stringify(err));
+            }
+          }
+
           res.end(
             JSON.stringify({
               html: result.html,
@@ -69,7 +78,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), mjmlCompilerPlugin()],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
     },
     resolve: {
       alias: {

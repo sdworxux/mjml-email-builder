@@ -10,11 +10,12 @@ import CampaignsPanel from './components/CampaignsPanel';
 import AssetsPanel from './components/AssetsPanel';
 import RestoreVersionModal from './components/RestoreVersionModal';
 import SaveAsModal from './components/SaveAsModal';
+import SendEmailModal from './components/SendEmailModal';
 import {
   Save, Search, ChevronRight, Loader2,
   PanelRightClose, PanelRightOpen, Copy, History,
   PanelRight, PanelBottom, Maximize2, X,
-  Mail, LayoutTemplate, ChevronDown, UserCog, User,
+  Mail, LayoutTemplate, ChevronDown, UserCog, User, Send,
 } from 'lucide-react';
 import { supabase, DBTemplate, DBTemplateHistory } from './lib/supabase';
 import { generateMJML } from './services/mjmlService';
@@ -89,6 +90,32 @@ const App: React.FC = () => {
   const [showRestore, setShowRestore] = useState(false);
   const [showSaveAs, setShowSaveAs] = useState(false);
   const [isSavingAs, setIsSavingAs] = useState(false);
+
+  // ── Send email modal (generator mode) ───────────────────────────────────
+  const [showSendEmail, setShowSendEmail] = useState(false);
+  const [sendHtml, setSendHtml] = useState('');
+  const [isSendCompiling, setIsSendCompiling] = useState(false);
+
+  const handleOpenSendEmail = async () => {
+    if (elements.length === 0) return;
+    setIsSendCompiling(true);
+    try {
+      const mjml = generateMJML(elements);
+      const res = await fetch('/api/compile-mjml', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mjml }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.html) throw new Error(data.error ?? 'Compilation failed');
+      setSendHtml(data.html);
+      setShowSendEmail(true);
+    } catch (err) {
+      console.error('Send email compile error:', err);
+    } finally {
+      setIsSendCompiling(false);
+    }
+  };
 
   // ── Panel position (right | bottom | fullscreen) ───────────────────────────
   const [panelPosition, setPanelPosition] = useState<PanelPosition>(() =>
@@ -298,6 +325,19 @@ const App: React.FC = () => {
     setElements(prev => toggle(prev));
   }, []);
 
+  // ── Update section label (name) ───────────────────────────────────────────
+  const handleLabelChange = useCallback((id: string, label: string) => {
+    const update = (items: MJElement[]): MJElement[] =>
+      items.map(item =>
+        item.id === id
+          ? { ...item, label: label.trim() || undefined }
+          : item.children
+            ? { ...item, children: update(item.children) }
+            : item
+      );
+    setElements(prev => update(prev));
+  }, []);
+
   // ── Save template (builder mode) ───────────────────────────────────────────
   const saveTemplate = async () => {
     if (elements.length === 0) return;
@@ -453,6 +493,7 @@ const App: React.FC = () => {
     onToggleHidden: handleToggleHidden,
     onMoveUp: (id: string) => handleMoveById(id, 'up'),
     onMoveDown: (id: string) => handleMoveById(id, 'down'),
+    onLabelChange: handleLabelChange,
   };
 
   // ── Shared prop panel renderer ─────────────────────────────────────────────
@@ -493,7 +534,7 @@ const App: React.FC = () => {
             <X size={15} />
           </button>
         )}
-        <PreviewPanel elements={elements} defaultTab={appMode === 'generator' ? 'view' : 'mjml'} />
+        <PreviewPanel elements={elements} defaultTab="view" />
       </div>
     </div>
   );
@@ -702,6 +743,25 @@ const App: React.FC = () => {
                   </button>
                 )}
 
+                {/* Send Email — generator mode only */}
+                {appMode === 'generator' && mainTab === 'editor' && (
+                  <button
+                    onClick={handleOpenSendEmail}
+                    disabled={elements.length === 0 || isSendCompiling}
+                    aria-label="Send campaign as email"
+                    title="Send campaign as email"
+                    className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-bold border transition-all ${elements.length === 0 || isSendCompiling
+                        ? 'border-gray-200 bg-white text-gray-300 cursor-not-allowed'
+                        : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-300 cursor-pointer'
+                      }`}
+                  >
+                    {isSendCompiling
+                      ? <Loader2 size={14} className="animate-spin" />
+                      : <Send size={14} />}
+                    <span className="hidden md:inline">Send Email</span>
+                  </button>
+                )}
+
                 {/* Save — mode-aware */}
                 <button
                   onClick={appMode === 'builder' ? saveTemplate : saveCampaign}
@@ -749,7 +809,7 @@ const App: React.FC = () => {
                     </div>
                   )}
                   <div className="flex-1 overflow-hidden">
-                    <PreviewPanel elements={elements} defaultTab={appMode === 'generator' ? 'view' : 'mjml'} />
+                    <PreviewPanel elements={elements} defaultTab="view" />
                   </div>
                 </div>
               </div>
@@ -837,6 +897,13 @@ const App: React.FC = () => {
           isSaving={isSavingAs}
           onConfirm={handleSaveAs}
           onClose={() => setShowSaveAs(false)}
+        />
+      )}
+      {showSendEmail && sendHtml && (
+        <SendEmailModal
+          html={sendHtml}
+          defaultSubject={templateName || 'Your Campaign'}
+          onClose={() => { setShowSendEmail(false); setSendHtml(''); }}
         />
       )}
     </div>

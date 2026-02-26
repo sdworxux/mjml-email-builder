@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MJElement, MJComponentType, AppMode } from '../types';
 import { MJML_COMPONENTS } from '../constants';
-import { Plus, GripVertical, Trash2, Layout, EyeOff, Eye, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Layout, EyeOff, Eye, ChevronUp, ChevronDown, Tag } from 'lucide-react';
 
 interface CanvasProps {
   elements: MJElement[];
@@ -21,6 +21,8 @@ interface CanvasProps {
   onMoveUp?: (id: string) => void;
   /** Generator mode: move a block down within its siblings */
   onMoveDown?: (id: string) => void;
+  /** Update the label (section name) of an element */
+  onLabelChange?: (id: string, label: string) => void;
 }
 
 interface DropIndicator {
@@ -28,16 +30,44 @@ interface DropIndicator {
   position: 'before' | 'after' | 'inside';
 }
 
+// ── Inline label editor ──────────────────────────────────────────────────────
+const InlineLabelEditor: React.FC<{
+  value: string;
+  onCommit: (v: string) => void;
+  onCancel: () => void;
+}> = ({ value, onCommit, onCancel }) => {
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, []);
+  return (
+    <input
+      ref={inputRef}
+      value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={() => onCommit(draft)}
+      onKeyDown={e => {
+        if (e.key === 'Enter') { e.preventDefault(); onCommit(draft); }
+        if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+      }}
+      onClick={e => e.stopPropagation()}
+      placeholder="Section name…"
+      className="text-[11px] font-bold text-[#001033] bg-white border border-[#006dd8] rounded-md px-2 py-0.5 outline-none focus:ring-2 focus:ring-[#006dd8]/20 w-40 shadow-sm"
+    />
+  );
+};
+
 const Canvas: React.FC<CanvasProps> = ({
   elements, selectedId, onSelect, onDrop, onReorder, onMoveInto, onDelete,
   templateName, onNameChange, mode,
-  onToggleHidden, onMoveUp, onMoveDown,
+  onToggleHidden, onMoveUp, onMoveDown, onLabelChange,
 }) => {
   const isGenerator = mode === 'generator';
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null);
   // Which container is highlighted for an incoming sidebar component
   const [containerHighlight, setContainerHighlight] = useState<string | null>(null);
+  // Which element's label is currently being edited inline
+  const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
 
   // ── Differentiate drag sources ────────────────────────────────────────────
   const isSidebarDrag = (e: React.DragEvent) => e.dataTransfer.types.includes('mj-type');
@@ -207,15 +237,48 @@ const Canvas: React.FC<CanvasProps> = ({
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center space-x-2">
-              <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${isActive ? 'bg-[#006dd8] text-white' : 'bg-gray-100 text-[#737477]'}`}>
+            <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
+              <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${isActive ? 'bg-[#006dd8] text-white' : 'bg-gray-100 text-[#737477]'}`}>
                 {el.type.replace('mj-', '')}
               </span>
-              {isActive && (
-                <div className="w-1.5 h-1.5 rounded-full bg-[#006dd8] animate-pulse" aria-hidden="true" />
+
+              {/* Section name — editable in builder, read-only in generator */}
+              {!isGenerator && editingLabelId === el.id ? (
+                <InlineLabelEditor
+                  value={el.label ?? ''}
+                  onCommit={v => { onLabelChange?.(el.id, v); setEditingLabelId(null); }}
+                  onCancel={() => setEditingLabelId(null)}
+                />
+              ) : el.label ? (
+                <span
+                  onClick={e => { if (!isGenerator) { e.stopPropagation(); setEditingLabelId(el.id); } }}
+                  title={isGenerator ? el.label : 'Click to rename'}
+                  className={`flex items-center gap-1 text-[11px] font-semibold italic truncate max-w-[180px] ${isGenerator
+                      ? 'text-[#737477] cursor-default'
+                      : 'text-[#006dd8] cursor-text hover:text-[#0055c0] hover:underline'
+                    }`}
+                >
+                  <Tag size={9} className="shrink-0" aria-hidden="true" />
+                  {el.label}
+                </span>
+              ) : (
+                !isGenerator && (
+                  <button
+                    onClick={e => { e.stopPropagation(); setEditingLabelId(el.id); }}
+                    title="Add section name"
+                    className="opacity-0 group-hover:opacity-60 hover:!opacity-100 flex items-center gap-1 text-[10px] text-[#737477] hover:text-[#006dd8] transition-all cursor-pointer"
+                  >
+                    <Tag size={9} aria-hidden="true" />
+                    <span>Name…</span>
+                  </button>
+                )
+              )}
+
+              {isActive && !editingLabelId && (
+                <div className="w-1.5 h-1.5 rounded-full bg-[#006dd8] animate-pulse shrink-0" aria-hidden="true" />
               )}
               {isHidden && (
-                <span className="flex items-center gap-0.5 text-[9px] text-amber-500 font-bold">
+                <span className="flex items-center gap-0.5 text-[9px] text-amber-500 font-bold shrink-0">
                   <EyeOff size={9} /> Hidden
                 </span>
               )}
@@ -275,8 +338,8 @@ const Canvas: React.FC<CanvasProps> = ({
                   aria-label={isHidden ? 'Show block' : 'Hide block'}
                   title={isHidden ? 'Show block' : 'Hide block'}
                   className={`p-1.5 rounded-lg transition-all cursor-pointer ${isHidden
-                      ? 'text-amber-500 hover:bg-amber-50'
-                      : 'text-[#737477] hover:bg-gray-100'
+                    ? 'text-amber-500 hover:bg-amber-50'
+                    : 'text-[#737477] hover:bg-gray-100'
                     }`}
                 >
                   {isHidden

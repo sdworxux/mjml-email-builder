@@ -184,6 +184,7 @@ export const MJML_COMPONENTS: ComponentDef[] = [
       'font-family': 'Inter, sans-serif',
       'font-size': '14px',
       'line-height': '1.6',
+      'container-background-color': '',
       padding: '10px 25px',
       'mj-class': '',
     },

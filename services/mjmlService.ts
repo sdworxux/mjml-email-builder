@@ -1,4 +1,5 @@
 import { MJElement, MJComponentType } from '../types';
+import { MJML_COMPONENTS } from '../constants';
 
 /** Head components — rendered inside <mj-head>, not <mj-body> */
 const HEAD_TYPES = new Set<MJComponentType>([
@@ -109,7 +110,15 @@ export const generateMJML = (elements: MJElement[]): string => {
   const bodyEls = visible.filter(el => !HEAD_TYPES.has(el.type));
 
   const renderEl = (el: MJElement, indent = '    '): string => {
-    const attrs = Object.entries(el.attributes)
+    // Merge defaultAttrs so attributes added to constants after a template was
+    // saved are still emitted. Live values in el.attributes always win.
+    const componentDef = MJML_COMPONENTS.find(c => c.type === el.type);
+    const mergedAttributes: Record<string, string> = {
+      ...(componentDef?.defaultAttrs ?? {}),
+      ...el.attributes,
+    };
+
+    const attrs = Object.entries(mergedAttributes)
       .filter(([, v]) => v !== '')          // skip optional fields left blank
       .map(([k, v]) => `${k}="${v}"`)
       .join(' ');
