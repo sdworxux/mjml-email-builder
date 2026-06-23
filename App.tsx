@@ -292,6 +292,33 @@ const App: React.FC = () => {
     setSelectedId(null);
   };
 
+  // ── Duplicate element ──────────────────────────────────────────────────────
+  const handleDuplicateElement = useCallback((id: string) => {
+    const deepClone = (el: MJElement): MJElement => ({
+      ...el,
+      id: Math.random().toString(36).substr(2, 9),
+      children: el.children ? el.children.map(deepClone) : undefined,
+    });
+    let cloneId: string | null = null;
+    setElements(prev => {
+      const dup = (items: MJElement[]): MJElement[] => {
+        const idx = items.findIndex(i => i.id === id);
+        if (idx !== -1) {
+          const clone = deepClone(items[idx]);
+          cloneId = clone.id;
+          const next = [...items];
+          next.splice(idx + 1, 0, clone);
+          return next;
+        }
+        return items.map(item =>
+          item.children ? { ...item, children: dup(item.children) } : item
+        );
+      };
+      return dup(prev);
+    });
+    if (cloneId) setSelectedId(cloneId);
+  }, []);
+
   // ── Move element INTO a container ─────────────────────────────────────────
   const handleMoveInto = useCallback((dragId: string, containerId: string) => {
     setElements(prev => {
@@ -584,6 +611,7 @@ const App: React.FC = () => {
     onReorder: handleReorder,
     onMoveInto: handleMoveInto,
     onDelete: handleDeleteElement,
+    onDuplicate: handleDuplicateElement,
     templateName,
     onNameChange: setTemplateName,
     mode: appMode,

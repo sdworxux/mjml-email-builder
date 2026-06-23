@@ -35,7 +35,31 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ elements, defaultTab = 'vie
   const [copiedHtml, setCopiedHtml] = useState(false);
   const [copiedMjml, setCopiedMjml] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // ── Clipboard helper (with execCommand fallback) ───────────────────────────
+  const copyToClipboard = async (text: string): Promise<void> => {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    // Fallback for non-secure contexts (HTTP) or older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    if (!ok) throw new Error('Clipboard write failed — please copy manually from the source tab.');
+  };
+
+  const showExportError = (msg: string) => {
+    setExportError(msg);
+    setTimeout(() => setExportError(null), 5000);
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -76,23 +100,31 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ elements, defaultTab = 'vie
   const handleExportHtml = async () => {
     if (elements.length === 0) return;
     setExporting(true);
+    setExportError(null);
     try {
       const html = await compileForExport();
-      await navigator.clipboard.writeText(html);
+      await copyToClipboard(html);
       setCopiedHtml(true);
       setTimeout(() => setCopiedHtml(false), 2000);
-    } catch {
-      // silently ignore clipboard / compile errors
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Export failed — unknown error';
+      showExportError(msg);
     } finally {
       setExporting(false);
     }
   };
 
   const handleExportMjml = async () => {
-    await navigator.clipboard.writeText(mjml);
     setDropdownOpen(false);
-    setCopiedMjml(true);
-    setTimeout(() => setCopiedMjml(false), 2000);
+    setExportError(null);
+    try {
+      await copyToClipboard(mjml);
+      setCopiedMjml(true);
+      setTimeout(() => setCopiedMjml(false), 2000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Export failed — unknown error';
+      showExportError(msg);
+    }
   };
   useEffect(() => {
     // Nothing to do when on the source tab
@@ -266,6 +298,16 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ elements, defaultTab = 'vie
 
         {/* ── Split Export button ─────────────────────────────────────── */}
         <div ref={dropdownRef} className="relative flex">
+          {/* Export error toast */}
+          {exportError && (
+            <div
+              role="alert"
+              className="absolute bottom-full right-0 mb-2 w-72 flex items-start gap-2.5 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl shadow-lg z-50 animate-fade-in"
+            >
+              <AlertTriangle size={13} className="text-red-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-red-700 font-medium leading-snug">{exportError}</p>
+            </div>
+          )}
           {/* Primary action: Copy HTML */}
           <button
             onClick={handleExportHtml}

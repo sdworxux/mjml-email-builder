@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MJElement, MJComponentType, AppMode } from '../types';
 import { MJML_COMPONENTS } from '../constants';
-import { Plus, GripVertical, Trash2, Layout, EyeOff, Eye, ChevronUp, ChevronDown, Tag } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Copy, Layout, EyeOff, Eye, ChevronUp, ChevronDown, Tag } from 'lucide-react';
 
 interface CanvasProps {
   elements: MJElement[];
@@ -11,6 +11,7 @@ interface CanvasProps {
   onReorder: (dragId: string, targetId: string, position: 'before' | 'after') => void;
   onMoveInto: (dragId: string, containerId: string) => void;
   onDelete: (id: string) => void;
+  onDuplicate?: (id: string) => void;
   templateName: string;
   onNameChange: (name: string) => void;
   /** Controls which feature set is available */
@@ -57,7 +58,7 @@ const InlineLabelEditor: React.FC<{
 };
 
 const Canvas: React.FC<CanvasProps> = ({
-  elements, selectedId, onSelect, onDrop, onReorder, onMoveInto, onDelete,
+  elements, selectedId, onSelect, onDrop, onReorder, onMoveInto, onDelete, onDuplicate,
   templateName, onNameChange, mode,
   onToggleHidden, onMoveUp, onMoveDown, onLabelChange,
 }) => {
@@ -329,8 +330,18 @@ const Canvas: React.FC<CanvasProps> = ({
 
             {/* Hover actions — mode-aware */}
             {!isGenerator ? (
-              /* Builder: Delete + Grip */
+              /* Builder: Duplicate + Delete + Grip */
               <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); onDuplicate?.(el.id); }}
+                  aria-label={`Duplicate ${el.type.replace('mj-', '')} element`}
+                  title="Duplicate"
+                  className="p-1.5 rounded-lg hover:bg-blue-50 hover:text-[#006dd8] text-[#737477] transition-all cursor-pointer"
+                >
+                  <Copy size={13} aria-hidden="true" />
+                </button>
+
                 <button
                   onMouseDown={e => e.stopPropagation()}
                   onClick={e => { e.stopPropagation(); onDelete(el.id); }}
