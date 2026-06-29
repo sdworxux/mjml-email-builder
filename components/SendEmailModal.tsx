@@ -16,9 +16,9 @@ const SUPABASE_ANON_KEY =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtZ3l6YnJ5a3pieXlxZGR5eXJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0Mjk4NzUsImV4cCI6MjA4NzAwNTg3NX0.aH4766y6l0iJtONRz3IyjKiO5xOWlNymSVbHfJ362gU';
 
 const SendEmailModal: React.FC<SendEmailModalProps> = ({ html, defaultSubject, onClose }) => {
-    const [to, setTo] = useState('');
+    const [to, setTo] = useState('stephen.howe@sdworx.com');
     const [subject, setSubject] = useState(defaultSubject);
-    const [fromName, setFromName] = useState('');
+    const [fromName, setFromName] = useState('MJML email builder');
     const [state, setState] = useState<SendState>('idle');
     const [errorMsg, setErrorMsg] = useState('');
 

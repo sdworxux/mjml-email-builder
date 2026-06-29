@@ -868,13 +868,13 @@ const App: React.FC = () => {
                   </button>
                 )}
 
-                {/* Send Email — generator mode only */}
-                {appMode === 'generator' && mainTab === 'editor' && (
+                {/* Send Email */}
+                {mainTab === 'editor' && (
                   <button
                     onClick={handleOpenSendEmail}
                     disabled={elements.length === 0 || isSendCompiling}
-                    aria-label="Send campaign as email"
-                    title="Send campaign as email"
+                    aria-label="Send testmail"
+                    title="Send testmail"
                     className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-bold border transition-all ${elements.length === 0 || isSendCompiling
                       ? 'border-gray-200 bg-white text-gray-300 cursor-not-allowed'
                       : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-300 cursor-pointer'
@@ -883,7 +883,7 @@ const App: React.FC = () => {
                     {isSendCompiling
                       ? <Loader2 size={14} className="animate-spin" />
                       : <Send size={14} />}
-                    <span className="hidden md:inline">Send Email</span>
+                    <span className="hidden md:inline">Send Testmail</span>
                   </button>
                 )}
 
